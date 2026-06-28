@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>金丝笼 Gilded Cage · 互动短剧 Demo</title>
+<style>
+  :root{ --gold:#e8c873; --accent:#d9b35a; --bad:#e85a6b; --bg:#0b0a08; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#070605;font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#f4ecda;-webkit-tap-highlight-color:transparent}
+  #app{height:100%;display:flex;align-items:center;justify-content:center}
+  /* 9:16 竖屏框 */
+  #frame{position:relative;height:min(96vh,860px);aspect-ratio:9/16;background:#000;border-radius:18px;overflow:hidden;box-shadow:0 0 0 1px #3a3015,0 18px 60px rgba(0,0,0,.7)}
+  video{width:100%;height:100%;object-fit:cover;background:#000;display:block}
+
+  /* 通用覆盖层 */
+  .layer{position:absolute;inset:0;display:none;flex-direction:column;justify-content:flex-end;
+         background:linear-gradient(180deg,rgba(8,6,5,0) 40%,rgba(8,6,5,.55) 65%,rgba(6,5,4,.93) 100%);
+         padding:22px 18px 26px;gap:10px}
+  .layer.show{display:flex}
+
+  .qbar{position:absolute;top:0;left:0;right:0;padding:16px 18px;
+        background:linear-gradient(180deg,rgba(6,5,4,.88),rgba(6,5,4,0));font-size:14px;color:#ead9b0}
+  .qbar b{color:var(--gold)}
+
+  .choices{display:flex;flex-direction:column;gap:11px}
+  .btn{appearance:none;border:1px solid #6a5526;background:rgba(28,23,12,.85);color:#f4ecda;
+       font-size:15px;line-height:1.35;padding:13px 15px;border-radius:12px;text-align:left;cursor:pointer;
+       backdrop-filter:blur(2px);transition:transform .08s,border-color .15s,background .15s}
+  .btn:hover{border-color:var(--gold);background:rgba(46,38,18,.95)}
+  .btn:active{transform:scale(.985)}
+  .btn .k{color:var(--gold);font-weight:bold;margin-right:8px}
+
+  /* 开始 / 结束屏 */
+  .center{justify-content:center;align-items:center;text-align:center;
+          background:radial-gradient(120% 80% at 50% 30%,rgba(60,48,20,.6),rgba(6,5,4,.97))}
+  .center h1{margin:0 0 6px;font-size:27px;letter-spacing:3px;color:#f1e2bd}
+  .center .en{color:#9a875a;font-size:13px;letter-spacing:4px;margin:0 0 14px}
+  .center p{margin:4px 0;color:#c4ab78;font-size:14px;max-width:88%}
+  .cta{margin-top:22px;border:1px solid var(--gold);background:rgba(232,200,115,.12);color:#f4ecda;
+       font-size:16px;padding:13px 32px;border-radius:30px;cursor:pointer;letter-spacing:1px}
+  .cta:hover{background:rgba(232,200,115,.22)}
+
+  /* 坏结局卡 */
+  .bad{justify-content:center;background:linear-gradient(160deg,rgba(58,22,32,.96),rgba(8,7,6,.98))}
+  .bad .tag{align-self:center;color:var(--bad);font-size:13px;letter-spacing:3px;margin-bottom:6px}
+  .bad h2{align-self:center;margin:0 0 14px;font-size:24px;color:#ffd6dc;text-align:center}
+  .bad .beats{background:rgba(0,0,0,.32);border-left:3px solid var(--bad);border-radius:8px;padding:12px 14px;margin:0 0 12px}
+  .bad .beats div{font-size:13.5px;color:#f0d9dd;line-height:1.55;margin:3px 0}
+  .bad .dlg{font-size:14px;color:#ffe9b0;line-height:1.6;margin:2px 0}
+  .bad .dlg .sp{color:#ff9fb0;margin-right:6px}
+  .bad .note{align-self:center;color:#7d6b6e;font-size:11.5px;margin:10px 0 16px;text-align:center}
+  .bad .row{display:flex;gap:10px;justify-content:center}
+  .bad .row button{border:1px solid #6a3a44;background:rgba(58,22,32,.6);color:#ffd6dc;
+                   font-size:14px;padding:11px 18px;border-radius:24px;cursor:pointer}
+  .bad .row button.primary{border-color:var(--gold);color:#f4ecda;background:rgba(232,200,115,.12)}
+  .bad .row button:hover{filter:brightness(1.2)}
+
+  /* 角标 */
+  #hud{position:absolute;top:12px;right:14px;font-size:11px;color:#9a875a;background:rgba(6,5,4,.5);
+       padding:3px 9px;border-radius:10px;z-index:5}
+  .hint{align-self:center;color:#9a875a;font-size:11.5px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="frame">
+    <video id="vid" playsinline preload="auto"></video>
+    <div id="hud">原片片段</div>
+
+    <!-- 顶部决策问题 -->
+    <div class="qbar" id="qbar" style="display:none"></div>
+
+    <!-- 开始屏 -->
+    <div class="layer center show" id="startLayer">
+      <h1>金丝笼</h1>
+      <div class="en">GILDED CAGE</div>
+      <p>互动短剧 Demo · 你是侍应 Emma，母亲等钱治病</p>
+      <p style="color:#7d6b48;font-size:12.5px">正确路径播原片；选错的坏结局暂以文字代替（视频待生成）</p>
+      <button class="cta" id="startBtn">▶ 开始</button>
+    </div>
+
+    <!-- 选项屏 -->
+    <div class="layer" id="choiceLayer">
+      <div class="choices" id="choices"></div>
+      <div class="hint">选对续播原片 · 选错走坏结局</div>
+    </div>
+
+    <!-- 坏结局屏 -->
+    <div class="layer bad" id="badLayer">
+      <div class="tag">BAD END</div>
+      <h2 id="badTitle"></h2>
+      <div class="beats" id="badBeats"></div>
+      <div id="badDlg"></div>
+      <div class="note" id="badNote">（此处为待生成片段 · 现以文字代替）</div>
+      <div class="row">
+        <button class="primary" id="badRetry">↻ 重开本节点</button>
+        <button id="badRestart">⟲ 从头开始</button>
+      </div>
+    </div>
+
+    <!-- 结束屏 -->
+    <div class="layer center" id="endLayer">
+      <h1 style="font-size:22px;letter-spacing:1px">🔒 真结局</h1>
+      <p style="color:var(--gold)">「Welcome to your new cage, Miss Thorne.」</p>
+      <p>你留下了。契约生效，天花板的监控亮起红灯——笼门，从外面锁上了。</p>
+      <button class="cta" id="endBtn">⟲ 再玩一次</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORY = {
+  segments: {
+    seg1: { src:"seg1_rescue.mp4",   hud:"原片 0:00–0:28 · 楼顶→救场",  decision:"d1" },
+    seg2: { src:"seg2_contract.mp4",  hud:"原片 0:28–0:54 · 电梯·契约",  decision:"d2" },
+    seg3: { src:"seg3_cage.mp4",      hud:"原片 0:54–1:13 · 金丝笼",     decision:"d3" },
+    seg4: { src:"seg4_ending.mp4",    hud:"原片 1:13–1:20 · 真结局",     decision:"end" }
+  },
+  decisions: {
+    d1: { t:"0:28", q:"他撂下一句「Come with me.」。你跟，还是不跟？", replay:"seg1", options:[
+      { label:"低头，跟他走进电梯",           go:"seg2" },
+      { label:"甩开他，挤回人群回去上班",     bad:"end_blacklist" },
+      { label:"「你以为你是谁？」当众甩开他",  bad:"end_whoareyou" }
+    ]},
+    d2: { t:"0:54", q:"$1 亿，一年名义妻子，365 夜。签，还是不签？", replay:"seg2", options:[
+      { label:"接过笔，签字",                 go:"seg3" },
+      { label:"「我妈不卖。」把支票推回去",    bad:"end_bill" },
+      { label:"「翻倍，现在就要。」狮子大开口", bad:"end_folded" }
+    ]},
+    d3: { t:"1:13", q:"「First lesson: learn to obey.」你服，还是不服？", replay:"seg3", options:[
+      { label:"弯腰捡起契约，留下来",         go:"seg4" },
+      { label:"转身冲向电梯，夺门而逃",       bad:"end_locked" },
+      { label:"抄起桌上的酒瓶砸向他",         bad:"end_failed" }
+    ]}
+  },
+  badEnds: {
+    end_blacklist:{ title:"💀 黑名单", replay:"seg1",
+      beats:["你挤回人群，想回去上班","Liam 一个眼神，两名保安一左一右架住你","经理当场撕掉你的工牌","医院走廊：护士摘下你母亲病房门口的名牌——欠费停治"],
+      dlg:[["你","Wait — my mother's still in there!"],["Liam","She's no longer your concern."]] },
+    end_whoareyou:{ title:"💀 她不知道他是谁", replay:"seg1",
+      beats:["你抬手要打掉他那副施舍的姿态","全场静下来","他不动声色：「我是这栋楼的主人」","保镖上前，电梯门在你面前合上"],
+      dlg:[["你","Who do you think you are?"],["Liam","The man who owns this building."]] },
+    end_bill:{ title:"💀 她付不起的账单", replay:"seg2",
+      beats:["「我妈不卖。」你把支票推回去","他收回支票：「那她的治疗也不卖」","当晚主治医生被调走，病房换成最便宜的多人间","缴费窗口前，那个数字你付不起"],
+      dlg:[["你","My mother is not for sale."],["Liam","Then neither is her treatment."]] },
+    end_folded:{ title:"💀 一张折起来的支票", replay:"seg2",
+      beats:["「一亿？翻倍，现在就要。」你眼里有光","他笑了，把支票对折，收进内袋","电梯门开在大堂","他客气地请你出去——机会没了"],
+      dlg:[["你","Make it $200 million. Now."],["Liam","I wanted a wife. Not a price tag."]] },
+    end_locked:{ title:"💀 门从里面打不开", replay:"seg3",
+      beats:["你转身冲向电梯，按键没反应——要指纹","你拍门、喊，墙上的红灯一盏盏亮起","顶上的监控镜头转过来，对准你","他的声音从音响里传出来"],
+      dlg:[["你","Let me out!"],["Liam（画外）","The cage was never locked from the inside, Miss Thorne."]] },
+    end_failed:{ title:"💀 第一课，你没及格", replay:"seg3",
+      beats:["你抓起桌上的酒瓶砸过去","他偏头，瓶子碎在身后的墙上","他擦掉脸上一点酒，语气没变","两个黑西装从阴影里走出来；画面只剩监控的红灯"],
+      dlg:[["Liam","Lesson one. You failed."],["你","Don't touch me!"]] }
+  }
+};
+
+const vid   = document.getElementById('vid');
+const hud   = document.getElementById('hud');
+const qbar  = document.getElementById('qbar');
+const layers = { start:'startLayer', choice:'choiceLayer', bad:'badLayer', end:'endLayer' };
+function hideAll(){ Object.values(layers).forEach(id=>document.getElementById(id).classList.remove('show')); }
+function show(name){ hideAll(); document.getElementById(layers[name]).classList.add('show'); }
+
+let current = null; // 当前 segment id
+
+function playSegment(segId){
+  const seg = STORY.segments[segId];
+  current = segId;
+  hideAll(); qbar.style.display='none';
+  hud.textContent = seg.hud;
+  vid.src = seg.src;
+  vid.currentTime = 0;
+  const p = vid.play();
+  if(p && p.catch) p.catch(()=>{ /* 被拦截则等用户点 */ });
+}
+
+vid.addEventListener('ended', ()=>{
+  const seg = STORY.segments[current];
+  if(!seg) return;
+  if(seg.decision === 'end'){ show('end'); return; }
+  showDecision(seg.decision);
+});
+
+function showDecision(dId){
+  const d = STORY.decisions[dId];
+  qbar.style.display='block';
+  qbar.innerHTML = `<b>▶ ${d.t}</b> · ${d.q}`;
+  const box = document.getElementById('choices');
+  box.innerHTML = '';
+  const keys = ['A','B','C'];
+  d.options.forEach((opt,i)=>{
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.innerHTML = `<span class="k">${keys[i]}</span>${opt.label}`;
+    b.onclick = ()=>{
+      if(opt.go) playSegment(opt.go);
+      else showBad(opt.bad);
+    };
+    box.appendChild(b);
+  });
+  show('choice');
+}
+
+function showBad(badId){
+  const e = STORY.badEnds[badId];
+  qbar.style.display='none';
+  document.getElementById('badTitle').textContent = e.title;
+  document.getElementById('badBeats').innerHTML = e.beats.map(t=>`<div>· ${t}</div>`).join('');
+  document.getElementById('badDlg').innerHTML = e.dlg.map(([sp,l])=>`<div class="dlg"><span class="sp">${sp}：</span>${l}</div>`).join('');
+  document.getElementById('badRetry').onclick   = ()=>playSegment(e.replay);
+  document.getElementById('badRestart').onclick = ()=>playSegment('seg1');
+  try{ vid.pause(); }catch(_){}
+  show('bad');
+}
+
+document.getElementById('startBtn').onclick = ()=>playSegment('seg1');
+document.getElementById('endBtn').onclick   = ()=>playSegment('seg1');
+</script>
+</body>
+</html>
