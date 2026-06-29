@@ -76,7 +76,7 @@
       <h1>金丝笼</h1>
       <div class="en">GILDED CAGE</div>
       <p>互动短剧 Demo · 你是侍应 Emma，母亲等钱治病</p>
-      <p style="color:#7d6b48;font-size:12.5px">正确路径播原片；选错的坏结局暂以文字代替（视频待生成）</p>
+      <p style="color:#7d6b48;font-size:12.5px">正确路径播原片；选错走坏结局（6 条已全部生成视频）</p>
       <button class="cta" id="startBtn">▶ 开始</button>
     </div>
 
@@ -135,22 +135,22 @@ const STORY = {
     ]}
   },
   badEnds: {
-    end_blacklist:{ title:"💀 黑名单", replay:"seg1",
+    end_blacklist:{ title:"💀 黑名单", replay:"seg1", video:"bad_blacklist.mp4",
       beats:["你挤回人群，想回去上班","Liam 一个眼神，两名保安一左一右架住你","经理当场撕掉你的工牌","这座城市每一家场子都对你关了门——房租、你妈的住院费，都不等人"],
       dlg:[["你","I just need to get back to work."],["Liam","You don't work in this city anymore."]] },
-    end_whoareyou:{ title:"💀 她不知道他是谁", replay:"seg1",
+    end_whoareyou:{ title:"💀 她不知道他是谁", replay:"seg1", video:"bad_whoareyou.mp4",
       beats:["你抬手要打掉他那副施舍的姿态","全场静下来","他不动声色：「我是这栋楼的主人」","保镖上前，电梯门在你面前合上"],
       dlg:[["你","Who do you think you are?"],["Liam","The man who owns this building."]] },
-    end_bill:{ title:"💀 她付不起的账单", replay:"seg2",
+    end_bill:{ title:"💀 她付不起的账单", replay:"seg2", video:"bad_bill.mp4",
       beats:["「别拿我妈逼我。」你把支票推回去","他不再多说，只是收回支票","当晚主治医生被调走，病房换成最便宜的多人间","缴费窗口前，那个数字你付不起"],
       dlg:[["你","Don't use my mother against me."],["Liam","Then she loses her bed tonight."]] },
-    end_folded:{ title:"💀 一张折起来的支票", replay:"seg2",
+    end_folded:{ title:"💀 一张折起来的支票", replay:"seg2", video:"bad_folded.mp4",
       beats:["「一亿？翻倍，现在就要。」你眼里有光","他笑了，把支票对折，收进内袋","电梯门开在大堂","他客气地请你出去——机会没了"],
       dlg:[["你","Make it $200 million. Now."],["Liam","I wanted a wife. Not a price tag."]] },
-    end_locked:{ title:"💀 门从里面打不开", replay:"seg3",
+    end_locked:{ title:"💀 门从里面打不开", replay:"seg3", video:"bad_locked.mp4",
       beats:["你转身冲向电梯，按键没反应——要指纹","你拍门、喊，墙上的红灯一盏盏亮起","顶上的监控镜头转过来，对准你","他的声音从音响里传出来"],
       dlg:[["你","Let me out!"],["Liam（画外）","The cage was never locked from the inside, Miss Thorne."]] },
-    end_failed:{ title:"💀 第一课，你没及格", replay:"seg3",
+    end_failed:{ title:"💀 第一课，你没及格", replay:"seg3", video:"bad_failed.mp4",
       beats:["你抓起桌上的酒瓶砸过去","他偏头，瓶子碎在身后的墙上","他擦掉脸上一点酒，语气没变","两个黑西装从阴影里走出来；画面只剩监控的红灯"],
       dlg:[["Liam","Lesson one. You failed."],["你","Don't touch me!"]] }
   }
@@ -164,9 +164,12 @@ function hideAll(){ Object.values(layers).forEach(id=>document.getElementById(id
 function show(name){ hideAll(); document.getElementById(layers[name]).classList.add('show'); }
 
 let current = null; // 当前 segment id
+let mode = 'segment';   // 'segment' | 'badvideo'
+let currentBad = null;
 
 function playSegment(segId){
   const seg = STORY.segments[segId];
+  mode = 'segment';
   current = segId;
   hideAll(); qbar.style.display='none';
   hud.textContent = seg.hud;
@@ -177,6 +180,7 @@ function playSegment(segId){
 }
 
 vid.addEventListener('ended', ()=>{
+  if(mode === 'badvideo'){ showBadCard(currentBad); return; }
   const seg = STORY.segments[current];
   if(!seg) return;
   if(seg.decision === 'end'){ show('end'); return; }
@@ -203,10 +207,32 @@ function showDecision(dId){
   show('choice');
 }
 
+function playBadVideo(badId){
+  const e = STORY.badEnds[badId];
+  mode = 'badvideo';
+  currentBad = badId;
+  hideAll(); qbar.style.display='none';
+  hud.textContent = '坏结局 · BAD END';
+  vid.src = e.video;
+  vid.currentTime = 0;
+  const p = vid.play();
+  if(p && p.catch) p.catch(()=>{});
+}
+
 function showBad(badId){
   const e = STORY.badEnds[badId];
+  if(e.video){ playBadVideo(badId); return; }  // 有片段 → 先播坏结局视频，播完再弹卡
+  showBadCard(badId);
+}
+
+function showBadCard(badId){
+  const e = STORY.badEnds[badId];
+  const hasVideo = !!e.video;
   qbar.style.display='none';
   document.getElementById('badTitle').textContent = e.title;
+  document.getElementById('badBeats').style.display = hasVideo ? 'none' : '';
+  document.getElementById('badDlg').style.display   = hasVideo ? 'none' : '';
+  document.getElementById('badNote').style.display  = hasVideo ? 'none' : '';
   document.getElementById('badBeats').innerHTML = e.beats.map(t=>`<div>· ${t}</div>`).join('');
   document.getElementById('badDlg').innerHTML = e.dlg.map(([sp,l])=>`<div class="dlg"><span class="sp">${sp}：</span>${l}</div>`).join('');
   document.getElementById('badRetry').onclick   = ()=>playSegment(e.replay);
